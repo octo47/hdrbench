@@ -19,8 +19,6 @@ type Histogram interface {
 	UsedMem() int64
 	Reset()
 	RecordValues(datasets []*Dataset, start, stop int) error
-	RecordValuesMulti(datasets []*Dataset, start, stop, expandPerPoint int,
-		expand func(v float64, dist *[]float64, min float64, max float64)) error
 }
 
 type circonusHistogram struct {
@@ -41,17 +39,6 @@ func (hhist *circonusHistogram) RecordValues(
 	datasets []*Dataset,
 	start, stop int) error {
 
-	return hhist.RecordValuesMulti(datasets, start, stop, 1, CopyExpand)
-
-}
-
-func (hhist *circonusHistogram) RecordValuesMulti(
-	datasets []*Dataset,
-	start, stop int,
-	expandPerPoint int,
-	expand func(float64, *[]float64, float64, float64)) error {
-
-	expanded := make([]float64, expandPerPoint)
 	results := make([]*circonusllhist.Histogram, len(datasets))
 	errors := make([]error, len(datasets))
 	wg := sync.WaitGroup{}
@@ -61,21 +48,10 @@ func (hhist *circonusHistogram) RecordValuesMulti(
 			defer wg.Done()
 			hist := circonusllhist.New()
 			for _, v := range dataset.dataset[start:stop] {
-				if expandPerPoint > 1 {
-					expand(v, &expanded, dataset.LowerBound(), dataset.UpperBound())
-					for _, ev := range expanded {
-						err := hist.RecordValue(ev)
-						if err != nil {
-							errors[idx] = err
-							return
-						}
-					}
-				} else {
-					err := hist.RecordValue(v)
-					if err != nil {
-						errors[idx] = err
-						return
-					}
+				err := hist.RecordValue(v)
+				if err != nil {
+					errors[idx] = err
+					return
 				}
 			}
 			results[idx] = hist
@@ -139,16 +115,6 @@ func (hhist *hdrHistogram) RecordValues(
 	datasets []*Dataset,
 	start, stop int) error {
 
-	return hhist.RecordValuesMulti(datasets, start, stop, 1, CopyExpand)
-
-}
-
-func (hhist *hdrHistogram) RecordValuesMulti(
-	datasets []*Dataset,
-	start, stop int,
-	expandPerPoint int,
-	expand func(float64, *[]float64, float64, float64)) error {
-
 	max := int64(math.MinInt64)
 	for _, dataset := range datasets {
 		if max < dataset.MaxInt(hhist.scaleToInt) {
@@ -165,7 +131,6 @@ func (hhist *hdrHistogram) RecordValuesMulti(
 		}
 		hhist.merged = newMerged
 	}
-	expanded := make([]float64, expandPerPoint)
 	results := make([]*hdrhistogram.Histogram, len(datasets))
 	errors := make([]error, len(datasets))
 	wg := sync.WaitGroup{}
@@ -179,22 +144,10 @@ func (hhist *hdrHistogram) RecordValuesMulti(
 				hhist.merged.HighestTrackableValue(),
 				int(hhist.merged.SignificantFigures()))
 			for idx := start; idx < stop; idx++ {
-				if expandPerPoint > 1 {
-					v := dataset.dataset[idx]
-					expand(v, &expanded, dataset.LowerBound(), dataset.UpperBound())
-					for _, ev := range expanded {
-						err := hist.RecordValue(int64(ev * hhist.scaleToInt))
-						if err != nil {
-							errors[idx] = err
-							return
-						}
-					}
-				} else {
-					err := hist.RecordValue(dataset.IntValue(idx, hhist.scaleToInt))
-					if err != nil {
-						errors[idx] = err
-						return
-					}
+				err := hist.RecordValue(dataset.IntValue(idx, hhist.scaleToInt))
+				if err != nil {
+					errors[idx] = err
+					return
 				}
 			}
 			results[idx] = hist
@@ -249,23 +202,9 @@ func (hhist *preciseHistogram) RecordValues(
 	datasets []*Dataset,
 	start, stop int) error {
 
-	return hhist.RecordValuesMulti(datasets, start, stop, 1, CopyExpand)
-
-}
-
-func (hhist *preciseHistogram) RecordValuesMulti(
-	datasets []*Dataset,
-	start, stop int,
-	expandPerPoint int,
-	expand func(float64, *[]float64, float64, float64)) error {
-
 	hhist.sorted = false
-	expanded := make([]float64, expandPerPoint)
 	for _, dataset := range datasets {
-		for _, v := range dataset.dataset[start:stop] {
-			expand(v, &expanded, dataset.LowerBound(), dataset.UpperBound())
-			hhist.merged = append(hhist.merged, expanded...)
-		}
+		hhist.merged = append(hhist.merged, dataset.dataset[start:stop]...)
 	}
 	return nil
 }
