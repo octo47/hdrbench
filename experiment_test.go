@@ -24,10 +24,10 @@ func histTestHelper(t *testing.T, hist Histogram) {
 	dset1 := NewLatencyDataset("ds1", rnd.Int63(), rnd.Int63(), 0, 1200.0, 1000)
 	dset2 := NewLatencyDataset("ds2", rnd.Int63(), rnd.Int63(), 0, 1200.0, 1000)
 	phist, _ := NewPreceiseHist()
-	hist.RecordValues([]*Dataset{dset1, dset2}, 0, 500)
-	phist.RecordValues([]*Dataset{dset1, dset2}, 0, 500)
-	hist.RecordValues([]*Dataset{dset1, dset2}, 500, 1000)
-	phist.RecordValues([]*Dataset{dset1, dset2}, 500, 1000)
+	require.NoError(t, hist.RecordValues([]*Dataset{dset1, dset2}, 0, 500))
+	require.NoError(t, phist.RecordValues([]*Dataset{dset1, dset2}, 0, 500))
+	require.NoError(t, hist.RecordValues([]*Dataset{dset1, dset2}, 500, 1000))
+	require.NoError(t, phist.RecordValues([]*Dataset{dset1, dset2}, 500, 1000))
 	quantiles := []float64{0.1, 0.5, 0.7, 0.95, 0.99}
 	histQ, _ := hist.Quantiles(quantiles)
 	phistQ, _ := phist.Quantiles(quantiles)
@@ -46,7 +46,7 @@ func BenchmarkCirconus(b *testing.B) {
 	dset := NewLatencyDataset("ds", rnd.Int63(), rnd.Int63(), 0, 1200.0, b.N)
 	hist, _ := NewCircosusHist()
 	b.StartTimer()
-	hist.RecordValues([]*Dataset{dset}, 0, b.N)
+	_ = hist.RecordValues([]*Dataset{dset}, 0, b.N)
 }
 
 func BenchmarkHdr(b *testing.B) {
@@ -55,5 +55,5 @@ func BenchmarkHdr(b *testing.B) {
 	dset := NewLatencyDataset("ds", rnd.Int63(), rnd.Int63(), 0, 1200.0, b.N)
 	hist, _ := NewHdrHist(0, 10^6, 3, 1.0)
 	b.StartTimer()
-	hist.RecordValues([]*Dataset{dset}, 0, b.N)
+	_ = hist.RecordValues([]*Dataset{dset}, 0, b.N)
 }

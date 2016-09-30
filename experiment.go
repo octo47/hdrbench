@@ -15,6 +15,7 @@ type Histogram interface {
 	Name() string
 	// Calculate quantiles
 	Quantiles(qin []float64) ([]float64, error)
+	ValueAtQuantile(qin float64) int64
 	SignificantFigures() int64
 	UsedMem() int64
 	Reset()
@@ -67,6 +68,11 @@ func (hhist *circonusHistogram) RecordValues(
 	return nil
 }
 
+func (hhist *circonusHistogram) ValueAtQuantile(qin float64) int64 {
+	v := hhist.merged.ValueAtQuantile(qin)
+	return int64(v)
+}
+
 func (hhist *circonusHistogram) Name() string {
 	return "Circonus"
 }
@@ -103,12 +109,6 @@ func (hhist *hdrHistogram) Name() string {
 func (hhist *hdrHistogram) Reset() {
 	hhist.merged = hdrhistogram.New(
 		0, 10^6, int(hhist.merged.SignificantFigures()))
-}
-
-func CopyExpand(v float64, dst *[]float64, min, max float64) {
-	for i := range *dst {
-		(*dst)[i] = v
-	}
 }
 
 func (hhist *hdrHistogram) RecordValues(
@@ -171,6 +171,11 @@ func (hhist *hdrHistogram) Quantiles(qin []float64) ([]float64, error) {
 	return qout, nil
 }
 
+func (hhist *hdrHistogram) ValueAtQuantile(qin float64) int64 {
+	v := hhist.merged.ValueAtQuantile(qin)
+	return v
+}
+
 func (hhist *hdrHistogram) SignificantFigures() int64 {
 	return hhist.merged.SignificantFigures()
 }
@@ -215,6 +220,15 @@ func (hhist *preciseHistogram) Quantiles(qin []float64) ([]float64, error) {
 		hhist.sorted = true
 	}
 	return Quantiles(hhist.merged, qin), nil
+}
+
+func (hhist *preciseHistogram) ValueAtQuantile(qin float64) int64 {
+	if !hhist.sorted {
+		hhist.merged = QSortFloat(hhist.merged)
+		hhist.sorted = true
+	}
+	_, count := Quantile(hhist.merged, qin)
+	return count
 }
 
 func (hhist *preciseHistogram) SignificantFigures() int64 {

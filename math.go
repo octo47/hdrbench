@@ -57,19 +57,19 @@ func StdDev(numbers []float64, mean float64) float64 {
 	return math.Sqrt(variance)
 }
 
-func Quantile(numbers []float64, n float64) float64 {
+func Quantile(numbers []float64, n float64) (float64, int64) {
 	l := int64(len(numbers))
 	position := Round(float64(l) * n)
 	if position >= l {
 		position = l - 1
 	}
-	return numbers[int(position)]
+	return numbers[int(position)], int64(position)
 }
 
 func Quantiles(numbers []float64, n []float64) []float64 {
 	result := make([]float64, len(n))
 	for i, v := range n {
-		result[i] = Quantile(numbers, v)
+		result[i], _ = Quantile(numbers, v)
 	}
 	return result
 }

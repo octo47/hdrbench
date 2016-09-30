@@ -483,7 +483,8 @@ func (h *Histogram) ApproxQuantile(q_in []float64) ([]float64, error) {
 			if bin_width == 0 {
 				q_out[i_q] = bin_left
 			} else {
-				q_out[i_q] = bin_left + (q_out[i_q]-lower_cnt)/(upper_cnt-lower_cnt)*bin_width
+				q_out[i_q] = bin_left +
+					(q_out[i_q]-lower_cnt)/(upper_cnt-lower_cnt)*bin_width
 			}
 		}
 	}

@@ -26,7 +26,7 @@ var drawErrors = flag.Bool("draw-errors", false,
 	"Draw datasets graphs (requires gnuplot)")
 var randSeed = flag.Int64("rand", 1234, "Random seed to use")
 var outputDir = flag.String("workdir", ".", "Directory to put generated files to")
-var intScale = flag.Float64("int-scale", 10.0, "How scale floats to int for some hdrbenchgrams")
+var intScale = flag.Float64("int-scale", 10.0, "How scale floats to int for some histograms")
 var outliers = flag.Int("outliers", 1, "Number of high latency signal")
 
 type HistogramList []hdrbench.Histogram
@@ -40,22 +40,22 @@ func main() {
 
 	var err error
 	var hist hdrbench.Histogram
-	hdrbenchgrams := make(HistogramList, 0)
+	histograms := make(HistogramList, 0)
 	if hist, err = hdrbench.NewPreceiseHist(); err != nil {
-		glog.Fatal("Unable to create precise hdrbenchgram")
+		glog.Fatal("Unable to create precise histo")
 	}
-	hdrbenchgrams = append(hdrbenchgrams, hist)
-	glog.Info("Adding ", hist.Name(), " hdrbenchgram")
+	histograms = append(histograms, hist)
+	glog.Info("Adding ", hist.Name(), " histogram")
 	if hist, err = hdrbench.NewHdrHist(0, 1000, 2, *intScale); err != nil {
-		glog.Fatal("Unable to create HDR hdrbenchgram")
+		glog.Fatal("Unable to create HDR histo")
 	}
-	hdrbenchgrams = append(hdrbenchgrams, hist)
-	glog.Info("Adding ", hist.Name(), " hdrbenchgram")
+	histograms = append(histograms, hist)
+	glog.Info("Adding ", hist.Name(), " histogram")
 	if hist, err = hdrbench.NewCircosusHist(); err != nil {
-		glog.Fatal("Unable to create Circonus hdrbenchgram")
+		glog.Fatal("Unable to create Circonus histor")
 	}
-	hdrbenchgrams = append(hdrbenchgrams, hist)
-	glog.Info("Adding ", hist.Name(), " hdrbenchgram")
+	histograms = append(histograms, hist)
+	glog.Info("Adding ", hist.Name(), " histogram")
 
 	for singals := *minSignals; singals <= (*maxSignals); singals *= *signalMultiplier {
 		quantilesDiff := make(quantileDiffHistory, *iterationsCount)
@@ -71,23 +71,23 @@ func main() {
 				*datapointsCount)
 		}
 		for iter := 0; iter < *iterationsCount; iter++ {
-			iterationQuantiles := make([][]float64, len(hdrbenchgrams))
-			quantilesDiff[iter] = make([][]float64, len(hdrbenchgrams))
-			for hi, hist := range hdrbenchgrams {
+			iterationQuantiles := make([][]float64, len(histograms))
+			quantilesDiff[iter] = make([][]float64, len(histograms))
+			for hi, hist := range histograms {
 				hist.Reset()
 				err := hist.RecordValues(
 					datasets, iter*(*datapointsCount), (iter+1)*(*datapointsCount))
 				if err != nil {
 					glog.Fatalf("Failed to record values iter %d hist %s",
-						iter, hdrbenchgrams[iter].Name())
+						iter, histograms[iter].Name())
 				}
 				iterationQuantiles[hi], err = hist.Quantiles(AllQuantiles)
 				if err != nil {
 					glog.Fatalf("Failed to calculate quantiles at iter %d hist %s",
-						iter, hdrbenchgrams[iter].Name())
+						iter, histograms[iter].Name())
 				}
 			}
-			for hi := 1; hi < len(hdrbenchgrams); hi++ {
+			for hi := 1; hi < len(histograms); hi++ {
 				quantilesDiff[iter][hi] = hdrbench.DiffRelative(
 					iterationQuantiles[0],
 					iterationQuantiles[hi])
@@ -95,23 +95,23 @@ func main() {
 			}
 		}
 		glog.Info("Calculated ", singals, " signals")
-		for _, hdrbenchgram := range hdrbenchgrams {
-			glog.Info("Histogram ", hdrbenchgram.Name(), " uses ", hdrbenchgram.UsedMem(), " bytes")
+		for _, histogram := range histograms {
+			glog.Info("Histogram ", histogram.Name(), " uses ", histogram.UsedMem(), " bytes")
 		}
-		reportQuantilesErrors(singals, hdrbenchgrams, quantilesDiff)
+		reportQuantilesErrors(singals, histograms, quantilesDiff)
 	}
 }
 
-func reportQuantilesErrors(signals int, hdrbenchgrams HistogramList, quantilesDiff quantileDiffHistory) {
+func reportQuantilesErrors(signals int, histograms HistogramList, quantilesDiff quantileDiffHistory) {
 	glog.Info("Generating report")
 
 	w := new(tabwriter.Writer)
 	// Format in tab-separated columns with a tab stop of 8.
 	w.Init(os.Stdout, 16, 8, 0, '\t', 0)
-	// start from 1 due of hdrbenchgrams[0] is alwasy Precise
-	for hIdx := 1; hIdx < len(hdrbenchgrams); hIdx++ {
-		hdrbenchgram := hdrbenchgrams[hIdx]
-		fmt.Fprintln(w, hdrbenchgram.Name())
+	// start from 1 due of histograms[0] is alwasy Precise
+	for hIdx := 1; hIdx < len(histograms); hIdx++ {
+		histogram := histograms[hIdx]
+		fmt.Fprintln(w, histogram.Name())
 		// print quantiles header
 		for i := range errorQuantiles {
 			fmt.Fprintf(w, "\t%0.2f", errorQuantiles[i])
@@ -133,7 +133,7 @@ func reportQuantilesErrors(signals int, hdrbenchgrams HistogramList, quantilesDi
 		}
 		if *drawErrors {
 			// don't draw more then 300 graphs, gnuplot wouldn't be happy
-			_ = plotErrors(signals, hdrbenchgram, graph)
+			_ = plotErrors(signals, histogram, graph)
 		}
 	}
 	w.Flush()
